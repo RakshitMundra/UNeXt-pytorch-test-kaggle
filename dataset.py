@@ -5,6 +5,10 @@ import numpy as np
 import torch
 import torch.utils.data
 
+# Let the DataLoader workers handle parallelism; otherwise OpenCV spawns its own
+# threads in every worker process and oversubscribes the CPU (CPU pegged, GPU idle).
+cv2.setNumThreads(0)
+
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, img_ids, img_dir, mask_dir, img_ext, mask_ext, num_classes, transform=None):
@@ -55,10 +59,14 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         img_id = self.img_ids[idx]
 
-        img = cv2.imread(os.path.join(self.img_dir, img_id + '_sat' + self.img_ext))
+        # Decode at 1/2 resolution: we downsize to ~512 anyway, so scaled JPEG
+        # decoding halves the decode cost. Image and mask use the same reduction
+        # factor, so they stay spatially aligned before the Resize in the transform.
+        img = cv2.imread(os.path.join(self.img_dir, img_id + '_sat' + self.img_ext),
+                         cv2.IMREAD_REDUCED_COLOR_2)
 
         mask = cv2.imread(os.path.join(self.mask_dir, img_id + '_mask' + self.mask_ext),
-                          cv2.IMREAD_GRAYSCALE)[..., None]
+                          cv2.IMREAD_REDUCED_GRAYSCALE_2)[..., None]
 
         if self.transform is not None:
             augmented = self.transform(image=img, mask=mask)
