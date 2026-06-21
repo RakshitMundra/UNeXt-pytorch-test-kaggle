@@ -332,7 +332,9 @@ def main():
     start_epoch = 0
 
     if config.get('resume'):
-        ckpt = torch.load('models/%s/checkpoint.pth' % config['name'])
+        # weights_only=False: our own trusted checkpoint, and it holds a python/
+        # numpy best_iou scalar that the PyTorch 2.6+ safe loader rejects by default.
+        ckpt = torch.load('models/%s/checkpoint.pth' % config['name'], weights_only=False)
         (model.module if isinstance(model, nn.DataParallel) else model).load_state_dict(ckpt['model'])
         optimizer.load_state_dict(ckpt['optimizer'])
         if scheduler is not None and ckpt['scheduler'] is not None:
@@ -384,7 +386,7 @@ def main():
         if val_log['iou'] > best_iou:
             torch.save({
                 'epoch': epoch,
-                'best_iou': val_log['iou'],
+                'best_iou': float(val_log['iou']),
                 'model': (model.module if isinstance(model, nn.DataParallel) else model).state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict() if scheduler is not None else None,
