@@ -59,14 +59,15 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         img_id = self.img_ids[idx]
 
-        # Decode at 1/2 resolution: we downsize to ~512 anyway, so scaled JPEG
-        # decoding halves the decode cost. Image and mask use the same reduction
-        # factor, so they stay spatially aligned before the Resize in the transform.
-        img = cv2.imread(os.path.join(self.img_dir, img_id + '_sat' + self.img_ext),
-                         cv2.IMREAD_REDUCED_COLOR_2)
+        # Read at native resolution. For speed/RAM, pre-resize the dataset once
+        # with preprocess_resize.py and point DATA_ROOT at the cached copy, so
+        # these files are already small (the Resize in the transform is then a
+        # no-op). Do NOT use IMREAD_REDUCED_* here: it would halve already-resized
+        # files and force an upscale.
+        img = cv2.imread(os.path.join(self.img_dir, img_id + '_sat' + self.img_ext))
 
         mask = cv2.imread(os.path.join(self.mask_dir, img_id + '_mask' + self.mask_ext),
-                          cv2.IMREAD_REDUCED_GRAYSCALE_2)[..., None]
+                          cv2.IMREAD_GRAYSCALE)[..., None]
 
         if self.transform is not None:
             augmented = self.transform(image=img, mask=mask)
