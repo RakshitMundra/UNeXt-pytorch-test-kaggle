@@ -358,12 +358,16 @@ def main():
 
         log['epoch'].append(epoch)
         log['lr'].append(config['lr'])
+        log['loss'].append(train_log['loss'])
+        log['iou'].append(train_log['iou'])
+        log['val_loss'].append(val_log['loss'])
+        log['val_iou'].append(val_log['iou'])
+        log['val_dice'].append(val_log['dice'])
 
-        # For plotting
         pd.DataFrame(log).to_csv('models/%s/log.csv' %
                                  config['name'], index=False)
 
-        # --- plotting chunk goes HERE (inside the for-epoch loop) ---
+        # --- live loss/IoU curves ---
         fig, ax = plt.subplots(1, 2, figsize=(12, 4))
         ax[0].plot(log['epoch'], log['loss'], label='train')
         ax[0].plot(log['epoch'], log['val_loss'], label='val')
@@ -373,19 +377,6 @@ def main():
         ax[1].set_title('IoU'); ax[1].legend()
         # fig.savefig('models/%s/curves.png' % config['name'])
         plt.close(fig)
-        # ------------------------------------------------------------
-
-        trigger += 1
-        
-        
-        log['loss'].append(train_log['loss'])
-        log['iou'].append(train_log['iou'])
-        log['val_loss'].append(val_log['loss'])
-        log['val_iou'].append(val_log['iou'])
-        log['val_dice'].append(val_log['dice'])
-
-        pd.DataFrame(log).to_csv('models/%s/log.csv' %
-                                 config['name'], index=False)
 
         trigger += 1
 
