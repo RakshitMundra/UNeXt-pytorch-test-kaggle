@@ -1,0 +1,15 @@
+# UNeXt-pytorch — Kaggle requirements
+# torch / torchvision are intentionally omitted: Kaggle GPU images ship them
+# pre-installed and pinned to the runtime CUDA. Reinstalling can break CUDA.
+
+timm==0.4.12          # UNeXt targets this API; newer timm breaks the model code
+albumentations
+opencv-python
+numpy
+pandas
+scikit-learn
+PyYAML
+yacs
+matplotlib
+tqdm
+mmcv-full==1.2.7
