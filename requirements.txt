@@ -12,4 +12,3 @@ PyYAML
 yacs
 matplotlib
 tqdm
-mmcv-full==1.2.7
