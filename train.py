@@ -27,6 +27,10 @@ ARCH_NAMES = archs.__all__
 LOSS_NAMES = losses.__all__
 LOSS_NAMES.append('BCEWithLogitsLoss')
 
+# change for kaggle
+DATA_ROOT = os.environ.get('DATA_ROOT', 'inputs')
+
+
 
 
 def parse_args():
@@ -248,8 +252,11 @@ def main():
         raise NotImplementedError
 
     # Data loading code
-    img_ids = glob(os.path.join('inputs', config['dataset'], 'images', '*' + config['img_ext']))
-    img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
+    # img_ids = glob(os.path.join('inputs', config['dataset'], 'images', '*' + config['img_ext']))
+    # img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
+    # below changed for kaggle env
+    img_ids = glob(os.path.join(DATA_ROOT, config['dataset'], '*_sat' + config['img_ext']))
+    img_ids = [os.path.basename(p)[:-len('_sat' + config['img_ext'])] for p in img_ids]
 
     train_img_ids, val_img_ids = train_test_split(img_ids, test_size=0.2, random_state=41)
 
@@ -267,16 +274,16 @@ def main():
 
     train_dataset = Dataset(
         img_ids=train_img_ids,
-        img_dir=os.path.join('inputs', config['dataset'], 'images'),
-        mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
+        img_dir=os.path.join(DATA_ROOT, config['dataset']),
+        mask_dir=os.path.join(DATA_ROOT, config['dataset']),
         img_ext=config['img_ext'],
         mask_ext=config['mask_ext'],
         num_classes=config['num_classes'],
         transform=train_transform)
     val_dataset = Dataset(
         img_ids=val_img_ids,
-        img_dir=os.path.join('inputs', config['dataset'], 'images'),
-        mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
+        img_dir=os.path.join(DATA_ROOT, config['dataset']),
+        mask_dir=os.path.join(DATA_ROOT, config['dataset']),
         img_ext=config['img_ext'],
         mask_ext=config['mask_ext'],
         num_classes=config['num_classes'],
