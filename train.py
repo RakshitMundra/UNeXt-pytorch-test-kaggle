@@ -21,7 +21,9 @@ from dataset import Dataset
 from metrics import iou_score
 from utils import AverageMeter, str2bool
 from archs import UNext
-
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 ARCH_NAMES = archs.__all__
 LOSS_NAMES = losses.__all__
@@ -314,7 +316,19 @@ def main():
 
     best_iou = 0
     trigger = 0
-    for epoch in range(config['epochs']):
+    start_epoch = 0
+
+    if config.get('resume'):
+        ckpt = torch.load('models/%s/checkpoint.pth' % config['name'])
+        model.load_state_dict(ckpt['model'])
+        optimizer.load_state_dict(ckpt['optimizer'])
+        if scheduler is not None and ckpt['scheduler'] is not None:
+            scheduler.load_state_dict(ckpt['scheduler'])
+        start_epoch = ckpt['epoch'] + 1
+        best_iou = ckpt['best_iou']
+        print('=> resumed from epoch %d (best_iou %.4f)' % (start_epoch, best_iou))
+    
+    for epoch in range(start_epoch, config['epochs']):
         print('Epoch [%d/%d]' % (epoch, config['epochs']))
 
         # train for one epoch
@@ -332,6 +346,26 @@ def main():
 
         log['epoch'].append(epoch)
         log['lr'].append(config['lr'])
+
+        # For plotting
+        pd.DataFrame(log).to_csv('models/%s/log.csv' %
+                                 config['name'], index=False)
+
+        # --- plotting chunk goes HERE (inside the for-epoch loop) ---
+        fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+        ax[0].plot(log['epoch'], log['loss'], label='train')
+        ax[0].plot(log['epoch'], log['val_loss'], label='val')
+        ax[0].set_title('Loss'); ax[0].legend()
+        ax[1].plot(log['epoch'], log['iou'], label='train')
+        ax[1].plot(log['epoch'], log['val_iou'], label='val')
+        ax[1].set_title('IoU'); ax[1].legend()
+        # fig.savefig('models/%s/curves.png' % config['name'])
+        plt.close(fig)
+        # ------------------------------------------------------------
+
+        trigger += 1
+        
+        
         log['loss'].append(train_log['loss'])
         log['iou'].append(train_log['iou'])
         log['val_loss'].append(val_log['loss'])
@@ -344,8 +378,13 @@ def main():
         trigger += 1
 
         if val_log['iou'] > best_iou:
-            torch.save(model.state_dict(), 'models/%s/model.pth' %
-                       config['name'])
+            torch.save({
+                'epoch': epoch,
+                'best_iou': val_log['iou'],
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict() if scheduler is not None else None,
+            }, 'models/%s/checkpoint.pth' % config['name'])
             best_iou = val_log['iou']
             print("=> saved best model")
             trigger = 0
@@ -356,6 +395,8 @@ def main():
             break
 
         torch.cuda.empty_cache()
+    # Final epoch save once loop ends
+    torch.save(model.state_dict(), 'models/%s/model_last.pth' % config['name'])
 
 
 if __name__ == '__main__':
