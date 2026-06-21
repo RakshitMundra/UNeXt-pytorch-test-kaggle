@@ -18,7 +18,8 @@ from utils import AverageMeter
 from albumentations import RandomRotate90,Resize
 import time
 from archs import UNext
-
+#changes for kaggle
+DATA_ROOT = os.environ.get('DATA_ROOT', 'inputs')
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -52,8 +53,9 @@ def main():
     model = model.cuda()
 
     # Data loading code
-    img_ids = glob(os.path.join('inputs', config['dataset'], 'images', '*' + config['img_ext']))
-    img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
+    img_ids = glob(os.path.join(DATA_ROOT, config['dataset'], '*_sat' + config['img_ext']))
+    img_ids = [os.path.basename(p)[:-len('_sat' + config['img_ext'])] for p in img_ids]
+
 
     _, val_img_ids = train_test_split(img_ids, test_size=0.2, random_state=41)
 
@@ -68,8 +70,8 @@ def main():
 
     val_dataset = Dataset(
         img_ids=val_img_ids,
-        img_dir=os.path.join('inputs', config['dataset'], 'images'),
-        mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
+        img_dir=os.path.join(DATA_ROOT, config['dataset']),
+        mask_dir=os.path.join(DATA_ROOT, config['dataset']),
         img_ext=config['img_ext'],
         mask_ext=config['mask_ext'],
         num_classes=config['num_classes'],
