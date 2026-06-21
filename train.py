@@ -103,6 +103,9 @@ def parse_args():
     parser.add_argument('--cfg', type=str, metavar="FILE", help='path to config file', )
 
     parser.add_argument('--num_workers', default=4, type=int)
+    parser.add_argument('--cache', default=False, type=str2bool,
+                        help='decode the whole (pre-resized) dataset into RAM once '
+                             'and share it across workers via copy-on-write')
 
     config = parser.parse_args()
 
@@ -287,7 +290,8 @@ def main():
         img_ext=config['img_ext'],
         mask_ext=config['mask_ext'],
         num_classes=config['num_classes'],
-        transform=train_transform)
+        transform=train_transform,
+        cache=config['cache'])
     val_dataset = Dataset(
         img_ids=val_img_ids,
         img_dir=os.path.join(DATA_ROOT, config['dataset']),
@@ -295,7 +299,8 @@ def main():
         img_ext=config['img_ext'],
         mask_ext=config['mask_ext'],
         num_classes=config['num_classes'],
-        transform=val_transform)
+        transform=val_transform,
+        cache=config['cache'])
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
