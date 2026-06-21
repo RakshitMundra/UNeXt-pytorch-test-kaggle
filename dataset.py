@@ -121,9 +121,10 @@ class Dataset(torch.utils.data.Dataset):
             img = augmented['image']
             mask = augmented['mask']
         
-        img = img.astype('float32') / 255
-        img = img.transpose(2, 0, 1)
-        mask = mask.astype('float32') / 255
-        mask = mask.transpose(2, 0, 1)
-        
+        # Keep as uint8 CHW. The float cast + normalization are done on the GPU
+        # in the training loop: smaller host->device transfer (1 byte vs 4) and
+        # the per-pixel float work is offloaded from the CPU workers.
+        img = np.ascontiguousarray(img.transpose(2, 0, 1))
+        mask = np.ascontiguousarray(mask.transpose(2, 0, 1))
+
         return img, mask, {'img_id': img_id}

@@ -9,7 +9,7 @@ import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.optim as optim
 import yaml
-from albumentations import HorizontalFlip, VerticalFlip, Normalize
+from albumentations import HorizontalFlip, VerticalFlip
 from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
@@ -19,7 +19,7 @@ import archs
 import losses
 from dataset import Dataset
 from metrics import iou_score
-from utils import AverageMeter, str2bool
+from utils import AverageMeter, str2bool, normalize_on_gpu
 from archs import UNext
 import matplotlib
 matplotlib.use('Agg')
@@ -120,8 +120,7 @@ def train(config, train_loader, model, criterion, optimizer):
 
     pbar = tqdm(total=len(train_loader))
     for input, target, _ in train_loader:
-        input = input.cuda()
-        target = target.cuda()
+        input, target = normalize_on_gpu(input, target)
 
         # compute output
         if config['deep_supervision']:
@@ -167,8 +166,7 @@ def validate(config, val_loader, model, criterion):
     with torch.no_grad():
         pbar = tqdm(total=len(val_loader))
         for input, target, _ in val_loader:
-            input = input.cuda()
-            target = target.cuda()
+            input, target = normalize_on_gpu(input, target)
 
             # compute output
             if config['deep_supervision']:
@@ -275,12 +273,10 @@ def main():
         HorizontalFlip(),
         VerticalFlip(),
         Resize(config['input_h'], config['input_w']),
-        Normalize(),
     ])
 
     val_transform = Compose([
         Resize(config['input_h'], config['input_w']),
-        Normalize(),
     ])
 
     train_dataset = Dataset(

@@ -6,7 +6,6 @@ import cv2
 import torch
 import torch.backends.cudnn as cudnn
 import yaml
-from albumentations import Normalize
 from albumentations.core.composition import Compose
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
@@ -14,7 +13,7 @@ from tqdm import tqdm
 import archs
 from dataset import Dataset
 from metrics import iou_score
-from utils import AverageMeter
+from utils import AverageMeter, normalize_on_gpu
 from albumentations import RandomRotate90,Resize
 import time
 from archs import UNext
@@ -65,7 +64,6 @@ def main():
 
     val_transform = Compose([
         Resize(config['input_h'], config['input_w']),
-        Normalize(),
     ])
 
     val_dataset = Dataset(
@@ -93,8 +91,7 @@ def main():
         os.makedirs(os.path.join('outputs', config['name'], str(c)), exist_ok=True)
     with torch.no_grad():
         for input, target, meta in tqdm(val_loader, total=len(val_loader)):
-            input = input.cuda()
-            target = target.cuda()
+            input, target = normalize_on_gpu(input, target)
             model = model.cuda()
             # compute output
             output = model(input)
