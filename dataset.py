@@ -54,14 +54,11 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         img_id = self.img_ids[idx]
-        
-        img = cv2.imread(os.path.join(self.img_dir, img_id + self.img_ext))
 
-        mask = []
-        for i in range(self.num_classes):
-            mask.append(cv2.imread(os.path.join(self.mask_dir, str(i),
-                        img_id + self.mask_ext), cv2.IMREAD_GRAYSCALE)[..., None])
-        mask = np.dstack(mask)
+        img = cv2.imread(os.path.join(self.img_dir, img_id + '_sat' + self.img_ext))
+
+        mask = cv2.imread(os.path.join(self.mask_dir, img_id + '_mask' + self.mask_ext),
+                          cv2.IMREAD_GRAYSCALE)[..., None]
 
         if self.transform is not None:
             augmented = self.transform(image=img, mask=mask)
