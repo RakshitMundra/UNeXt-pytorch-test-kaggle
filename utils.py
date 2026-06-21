@@ -7,11 +7,10 @@ class qkv_transform(nn.Conv1d):
 
 
 # ImageNet stats (albumentations Normalize defaults), kept on CPU and moved to
-# the input's device per batch. normalize_on_gpu reproduces the previous CPU
-# pipeline exactly: ((x/255 - mean)/std)/255, where x is uint8 [0,255] CHW from
-# the Dataset. NOTE: the trailing /255 is legacy double-scaling that was present
-# in the original dataset.py (after albumentations Normalize); it is preserved
-# here so training/eval results are unchanged.
+# the input's device per batch. The image is ImageNet-normalized: (x/255 - mean)/std
+# for uint8 [0,255] CHW input. The mask is scaled to 0/1 for the BCE-Dice loss.
+# (Previously the image was divided by 255 a second time after the normalize -- a
+# latent upstream bug that squashed inputs ~255x; that extra /255 was removed.)
 _NORM_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 _NORM_STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 
@@ -21,7 +20,6 @@ def normalize_on_gpu(input, target):
     mean = _NORM_MEAN.to(input.device)
     std = _NORM_STD.to(input.device)
     input = (input / 255.0 - mean) / std
-    input = input / 255.0
     target = target.cuda(non_blocking=True).float() / 255.0
     return input, target
 
