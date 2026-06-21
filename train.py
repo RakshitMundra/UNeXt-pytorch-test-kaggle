@@ -40,6 +40,8 @@ def parse_args():
 
     parser.add_argument('--name', default=None,
                         help='model name: (default: arch+timestamp)')
+    parser.add_argument('--resume', default=False, type=str2bool,
+                    help='resume training from models/<name>/last_ckpt.pth')
     parser.add_argument('--epochs', default=100, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-b', '--batch_size', default=16, type=int,
