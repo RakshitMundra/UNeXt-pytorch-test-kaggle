@@ -9,7 +9,7 @@ import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.optim as optim
 import yaml
-from albumentations.augmentations import transforms
+from albumentations import HorizontalFlip, VerticalFlip, Normalize
 from albumentations.core.composition import Compose, OneOf
 from sklearn.model_selection import train_test_split
 from torch.optim import lr_scheduler
@@ -231,6 +231,9 @@ def main():
                                            config['deep_supervision'])
 
     model = model.cuda()
+    if torch.cuda.device_count() > 1:
+        print(f"=> using {torch.cuda.device_count()} GPUs (DataParallel)")
+        model = nn.DataParallel(model)
 
     params = filter(lambda p: p.requires_grad, model.parameters())
     if config['optimizer'] == 'Adam':
@@ -266,14 +269,15 @@ def main():
 
     train_transform = Compose([
         RandomRotate90(),
-        transforms.Flip(),
+        HorizontalFlip(),
+        VerticalFlip(),
         Resize(config['input_h'], config['input_w']),
-        transforms.Normalize(),
+        Normalize(),
     ])
 
     val_transform = Compose([
         Resize(config['input_h'], config['input_w']),
-        transforms.Normalize(),
+        Normalize(),
     ])
 
     train_dataset = Dataset(
@@ -322,7 +326,7 @@ def main():
 
     if config.get('resume'):
         ckpt = torch.load('models/%s/checkpoint.pth' % config['name'])
-        model.load_state_dict(ckpt['model'])
+        (model.module if isinstance(model, nn.DataParallel) else model).load_state_dict(ckpt['model'])
         optimizer.load_state_dict(ckpt['optimizer'])
         if scheduler is not None and ckpt['scheduler'] is not None:
             scheduler.load_state_dict(ckpt['scheduler'])
@@ -383,7 +387,7 @@ def main():
             torch.save({
                 'epoch': epoch,
                 'best_iou': val_log['iou'],
-                'model': model.state_dict(),
+                'model': (model.module if isinstance(model, nn.DataParallel) else model).state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict() if scheduler is not None else None,
             }, 'models/%s/checkpoint.pth' % config['name'])
@@ -398,7 +402,8 @@ def main():
 
         torch.cuda.empty_cache()
     # Final epoch save once loop ends
-    torch.save(model.state_dict(), 'models/%s/model_last.pth' % config['name'])
+    torch.save((model.module if isinstance(model, nn.DataParallel) else model).state_dict(),
+               'models/%s/model_last.pth' % config['name'])
 
 
 if __name__ == '__main__':
