@@ -33,13 +33,16 @@ class FocalTverskyLoss(nn.Module):
     The Tversky index generalizes Dice with separate weights on false positives
     (alpha) and false negatives (beta). For roads (~few % positive pixels) we set
     beta > alpha so missed road pixels (FN) are penalized harder than spurious
-    ones (FP), which pushes recall up on thin structures. Raising (1 - TI) to the
-    power gamma (the "focal" term, exponent 0.75 == gamma 4/3 from Abraham &
-    Khan, 2019) concentrates gradient on the hard, low-overlap images instead of
-    the already-easy ones. Operates on raw logits, mirroring BCEDiceLoss.
+    ones (FP), which pushes recall up on thin structures -- but pushing it too far
+    over-segments and *lowers* IoU@0.5, so keep the asymmetry mild (e.g. 0.4/0.6).
+    The "focal" term raises (1 - TI) to the power gamma to concentrate gradient on
+    the hard, low-overlap images: this only down-weights easy examples when
+    gamma > 1 (Abraham & Khan 2019 recommend gamma = 4/3). gamma = 1 disables the
+    focal term (plain Tversky). gamma < 1 is *anti*-focal -- don't use it.
+    Operates on raw logits, mirroring BCEDiceLoss.
     """
 
-    def __init__(self, alpha=0.3, beta=0.7, gamma=0.75, smooth=1e-5):
+    def __init__(self, alpha=0.4, beta=0.6, gamma=1.0, smooth=1e-5):
         super().__init__()
         self.alpha = alpha
         self.beta = beta

@@ -71,6 +71,16 @@ def parse_args():
                         help='loss: ' +
                         ' | '.join(LOSS_NAMES) +
                         ' (default: BCEDiceLoss)')
+    # FocalTverskyLoss knobs (ignored by other losses). beta>alpha favors recall
+    # (recovers thin roads); keep it mild or IoU@0.5 drops from over-segmentation.
+    # gamma>1 enables the focal down-weighting of easy images; gamma=1 is plain
+    # Tversky; gamma<1 is anti-focal -- avoid.
+    parser.add_argument('--tversky_alpha', default=0.4, type=float,
+                        help='Tversky false-positive weight (FocalTverskyLoss)')
+    parser.add_argument('--tversky_beta', default=0.6, type=float,
+                        help='Tversky false-negative weight (FocalTverskyLoss)')
+    parser.add_argument('--tversky_gamma', default=1.0, type=float,
+                        help='focal exponent, >=1 (FocalTverskyLoss)')
     
     # dataset
     parser.add_argument('--dataset', default='isic',
@@ -227,6 +237,13 @@ def main():
     # define loss function (criterion)
     if config['loss'] == 'BCEWithLogitsLoss':
         criterion = nn.BCEWithLogitsLoss().cuda()
+    elif config['loss'] == 'FocalTverskyLoss':
+        criterion = losses.FocalTverskyLoss(
+            alpha=config['tversky_alpha'],
+            beta=config['tversky_beta'],
+            gamma=config['tversky_gamma']).cuda()
+        print('=> FocalTverskyLoss(alpha=%.2f, beta=%.2f, gamma=%.2f)'
+              % (config['tversky_alpha'], config['tversky_beta'], config['tversky_gamma']))
     else:
         criterion = losses.__dict__[config['loss']]().cuda()
 
