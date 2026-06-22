@@ -42,6 +42,12 @@ def parse_args():
                         help='model name: (default: arch+timestamp)')
     parser.add_argument('--resume', default=False, type=str2bool,
                     help='resume training from models/<name>/last_ckpt.pth')
+    parser.add_argument('--init_weights', default='', type=str,
+                    help='warm-start: load ONLY model weights from this checkpoint '
+                         '(.pth, dict or bare state_dict) into a fresh run with a '
+                         'fresh optimizer/scheduler. Use this when changing the loss '
+                         'so the new objective is not held back by stale Adam moments '
+                         'or a decayed cosine LR. Ignored when --resume is True.')
     parser.add_argument('--epochs', default=100, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('-b', '--batch_size', default=16, type=int,
@@ -232,6 +238,16 @@ def main():
                                            config['deep_supervision'])
 
     model = model.cuda()
+
+    # Warm-start from old weights without inheriting optimizer/scheduler state.
+    # Done before the (optional) DataParallel wrap so the keys match the bare model.
+    if config.get('init_weights') and not config.get('resume'):
+        ckpt = torch.load(config['init_weights'], map_location='cuda', weights_only=False)
+        state = ckpt['model'] if isinstance(ckpt, dict) and 'model' in ckpt else ckpt
+        model.load_state_dict(state)
+        print('=> warm-started model weights from %s (fresh optimizer + scheduler)'
+              % config['init_weights'])
+
     if torch.cuda.device_count() > 1:
         print(f"=> using {torch.cuda.device_count()} GPUs (DataParallel)")
         model = nn.DataParallel(model)
