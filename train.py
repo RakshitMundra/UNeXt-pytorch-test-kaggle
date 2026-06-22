@@ -280,7 +280,11 @@ def main():
 
     # Warm-start from old weights without inheriting optimizer/scheduler state.
     # Done before the (optional) DataParallel wrap so the keys match the bare model.
-    if config.get('init_weights') and not config.get('resume'):
+    # Treat '', 'none', 'null' (any case) as "no warm-start" so a literal "None"
+    # string from the caller cold-starts cleanly instead of trying to load a file.
+    if str(config.get('init_weights') or '').strip().lower() in ('', 'none', 'null'):
+        config['init_weights'] = ''
+    if config['init_weights'] and not config.get('resume'):
         ckpt = torch.load(config['init_weights'], map_location='cuda', weights_only=False)
         state = ckpt['model'] if isinstance(ckpt, dict) and 'model' in ckpt else ckpt
         model.load_state_dict(state)
