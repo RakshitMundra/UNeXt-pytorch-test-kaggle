@@ -7,7 +7,8 @@ try:
 except ImportError:
     pass
 
-__all__ = ['BCEDiceLoss', 'LovaszHingeLoss', 'FocalTverskyLoss']
+__all__ = ['BCEDiceLoss', 'LovaszHingeLoss', 'FocalTverskyLoss',
+           'FocalLoss', 'TverskyLoss', 'FocalPlusTverskyLoss']
 
 
 class BCEDiceLoss(nn.Module):
@@ -59,6 +60,75 @@ class FocalTverskyLoss(nn.Module):
         fn = ((1 - input) * target).sum(1)
         tversky = (tp + self.smooth) / (tp + self.alpha * fp + self.beta * fn + self.smooth)
         return (1 - tversky).pow(self.gamma).mean()
+
+
+class FocalLoss(nn.Module):
+    """Binary focal loss on logits (Lin et al., 2017).
+
+    Standard BCE re-weighted by (1 - p_t)^gamma so well-classified (easy) pixels
+    contribute little and the model focuses on hard ones -- this REQUIRES
+    gamma > 1 to suppress easy examples (gamma = 0 reduces to plain weighted BCE).
+    alpha is the weight on the positive (rare road) class.
+    """
+
+    def __init__(self, alpha=0.25, gamma=2.0):
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+
+    def forward(self, input, target):
+        bce = F.binary_cross_entropy_with_logits(input, target, reduction='none')
+        p = torch.sigmoid(input)
+        p_t = p * target + (1 - p) * (1 - target)
+        alpha_t = self.alpha * target + (1 - self.alpha) * (1 - target)
+        loss = alpha_t * (1 - p_t).pow(self.gamma) * bce
+        return loss.mean()
+
+
+class TverskyLoss(nn.Module):
+    """Tversky loss (1 - Tversky index). alpha weights FP, beta weights FN;
+    beta > alpha favors recall. alpha = beta = 0.5 reduces to Dice."""
+
+    def __init__(self, alpha=0.4, beta=0.6, smooth=1e-5):
+        super().__init__()
+        self.alpha = alpha
+        self.beta = beta
+        self.smooth = smooth
+
+    def forward(self, input, target):
+        input = torch.sigmoid(input)
+        num = target.size(0)
+        input = input.view(num, -1)
+        target = target.view(num, -1)
+        tp = (input * target).sum(1)
+        fp = (input * (1 - target)).sum(1)
+        fn = ((1 - input) * target).sum(1)
+        tversky = (tp + self.smooth) / (tp + self.alpha * fp + self.beta * fn + self.smooth)
+        return (1 - tversky).mean()
+
+
+class FocalPlusTverskyLoss(nn.Module):
+    """Weighted SUM of binary Focal loss and Tversky loss:
+
+        loss = focal_weight * FocalLoss + tversky_weight * TverskyLoss
+
+    This is NOT the FocalTverskyLoss (1 - TI)^gamma formulation -- it adds two
+    separate terms. Focal handles per-pixel hard-example mining; Tversky handles
+    region overlap / FP-FN balance. Operates on raw logits.
+    """
+
+    def __init__(self, focal_weight=1.0, tversky_weight=1.0,
+                 focal_alpha=0.25, focal_gamma=2.0,
+                 tversky_alpha=0.4, tversky_beta=0.6, smooth=1e-5):
+        super().__init__()
+        self.focal_weight = focal_weight
+        self.tversky_weight = tversky_weight
+        self.focal = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
+        self.tversky = TverskyLoss(alpha=tversky_alpha, beta=tversky_beta, smooth=smooth)
+
+    def forward(self, input, target):
+        return (self.focal_weight * self.focal(input, target)
+                + self.tversky_weight * self.tversky(input, target))
 
 
 class LovaszHingeLoss(nn.Module):

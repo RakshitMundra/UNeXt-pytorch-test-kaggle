@@ -81,6 +81,16 @@ def parse_args():
                         help='Tversky false-negative weight (FocalTverskyLoss)')
     parser.add_argument('--tversky_gamma', default=1.0, type=float,
                         help='focal exponent, >=1 (FocalTverskyLoss)')
+    # FocalPlusTverskyLoss knobs: loss = focal_weight*Focal + tversky_weight*Tversky.
+    # It reuses --tversky_alpha/--tversky_beta for the Tversky term.
+    parser.add_argument('--focal_weight', default=1.0, type=float,
+                        help='weight on the Focal term (FocalPlusTverskyLoss)')
+    parser.add_argument('--tversky_weight', default=1.0, type=float,
+                        help='weight on the Tversky term (FocalPlusTverskyLoss)')
+    parser.add_argument('--focal_alpha', default=0.25, type=float,
+                        help='Focal positive-class weight (FocalLoss/FocalPlusTverskyLoss)')
+    parser.add_argument('--focal_gamma', default=2.0, type=float,
+                        help='Focal exponent, >1 focuses on hard pixels (FocalLoss/FocalPlusTverskyLoss)')
     
     # dataset
     parser.add_argument('--dataset', default='isic',
@@ -244,6 +254,18 @@ def main():
             gamma=config['tversky_gamma']).cuda()
         print('=> FocalTverskyLoss(alpha=%.2f, beta=%.2f, gamma=%.2f)'
               % (config['tversky_alpha'], config['tversky_beta'], config['tversky_gamma']))
+    elif config['loss'] == 'FocalPlusTverskyLoss':
+        criterion = losses.FocalPlusTverskyLoss(
+            focal_weight=config['focal_weight'],
+            tversky_weight=config['tversky_weight'],
+            focal_alpha=config['focal_alpha'],
+            focal_gamma=config['focal_gamma'],
+            tversky_alpha=config['tversky_alpha'],
+            tversky_beta=config['tversky_beta']).cuda()
+        print('=> FocalPlusTverskyLoss(focal_w=%.2f*Focal(alpha=%.2f,gamma=%.2f) '
+              '+ tversky_w=%.2f*Tversky(alpha=%.2f,beta=%.2f))'
+              % (config['focal_weight'], config['focal_alpha'], config['focal_gamma'],
+                 config['tversky_weight'], config['tversky_alpha'], config['tversky_beta']))
     else:
         criterion = losses.__dict__[config['loss']]().cuda()
 
